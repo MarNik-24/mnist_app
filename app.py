@@ -2,7 +2,7 @@ import joblib
 import streamlit as st
 import numpy as np
 import os
-import cv2
+from PIL import Image, ImageOps  # Use PIL instead of OpenCV
 import zipfile
 from streamlit_drawable_canvas import st_canvas
 import gdown
@@ -36,29 +36,21 @@ st.write("Draw a digit between 0 and 9 on the canvas below. Use the Undo or Clea
 
 # --- Function to Process Drawn Digits ---
 def preprocess_drawn_digit(img):
-    """ Process the drawn digit to match MNIST format """
-    img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGBA2GRAY)
-    _, img = cv2.threshold(img, 50, 255, cv2.THRESH_BINARY)
-    coords = cv2.findNonZero(img)
+    """Process the drawn digit to match MNIST format (without OpenCV)."""
+    img = Image.fromarray(img.astype(np.uint8))  # Convert to PIL image
+    img = img.convert("L")  # Convert to grayscale
+    ##img = ImageOps.invert(img)  # Invert colors (white digit on black)
     
-    if coords is None or len(coords) < 10:
-        return None  
+    # Resize to 28x28 while maintaining aspect ratio and centering
+    img = img.resize((28, 28), Image.Resampling.LANCZOS)
+    
+    # Convert to NumPy array and normalize
+    img = np.array(img).astype(np.float32) / 255.0  
 
-    x, y, w, h = cv2.boundingRect(coords)
-    if w < 5 or h < 5:
-        st.warning("Bounding box too small!")
-        return None
+    # Ensure it's in the shape expected by the model (1, 784)
+    img = img.reshape(1, -1)
 
-    digit = img[y:y+h, x:x+w]  
-    digit = cv2.resize(digit, (20, 20), interpolation=cv2.INTER_AREA)
-
-    centered_img = np.zeros((28, 28), dtype=np.uint8)
-    x_offset = (28 - 20) // 2
-    y_offset = (28 - 20) // 2
-    centered_img[y_offset:y_offset+20, x_offset:x_offset+20] = digit
-
-    centered_img = centered_img.astype(np.float32) / 255.0  
-    return centered_img
+    return img
 
 # --- Drawing Canvas ---
 canvas_result = st_canvas(
