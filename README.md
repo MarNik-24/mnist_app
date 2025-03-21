@@ -1,2 +1,2 @@
 # mnist_app
-Streamlit app
+Streamlit app for intepretation of digits trained with MNIST
